@@ -110,9 +110,11 @@ void copy_main(int argc, char *argv[]) {
     int modification = 1;
 
     int opt;
-    const char optstring[] = "t:";
+    const char optstring[] = "cmt:";
     const struct option longopts[] = {
         {"modification", optional_argument, NULL, 't'},
+        {"copy", no_argument, NULL, 'c'},
+        {"move", no_argument, NULL, 'm'},
         {0, 0, 0, 0},
     };
 
@@ -126,6 +128,12 @@ void copy_main(int argc, char *argv[]) {
             break;
         case '?':
             puts(optarg);
+            break;
+        case 'm':
+            copy_command = "mv";
+            break;
+        case 'c':
+            copy_command = "cp";
             break;
         }
     }
