@@ -22,7 +22,7 @@ If you want more than one item use `-t` as an option.
 
 ## Features
 
-* Takes full advantage of the CDPATH environment variable. No more need to type
+* Takes full advantage of the `CDPATH` environment variable. No more need to type
   in long full paths
 * Copy/move the most recent/old files
 * Fast
