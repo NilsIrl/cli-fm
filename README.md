@@ -11,9 +11,9 @@ cli-fm <command> [options]
 ```
 
 The command may be on of the following:
-* `ls`
-* `mv`
-* `cp`
+* `ls`, `list`
+* `mv`, `move`
+* `cp`, `copy`
 
 All these commands will work like the standard `coreutils` one except they will
 take into account the `CDPATH` environment variable. Also when the source is a
@@ -31,4 +31,10 @@ If you want more than one item use `-t` as an option.
 ## Dependencies
 
 * coreutils (cp, ls, mv)
+
+## TODO
+
+* Make this program universal and work on any commmand
+* Add shell completion (not in shell because that's bloat)
+* Add tests because I can't remember everything to test
 

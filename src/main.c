@@ -21,6 +21,7 @@
 #define CRASH() err(1, "line %d in %s", __LINE__, __FILE__);
 
 char *copy_command = "cp";
+char **args;
 
 char *src_path;
 int src_path_len;
@@ -29,12 +30,12 @@ int compar(const struct dirent **a, const struct dirent **b) {
     struct stat a_stat;
     struct stat b_stat;
 
-    strncpy(src_path + src_path_len, (*a)->d_name, 256);
+    strncpy(src_path + src_path_len + 1, (*a)->d_name, 256);
     if (stat(src_path, &a_stat)) {
         CRASH();
     }
 
-    strncpy(src_path + src_path_len, (*b)->d_name, 256);
+    strncpy(src_path + src_path_len + 1, (*b)->d_name, 256);
     if (stat(src_path, &b_stat)) {
         CRASH();
     }
@@ -48,10 +49,10 @@ int filter(const struct dirent *a) {
     return 0;
 }
 
-void exec(char *const args[]) { // TODO: probably want to use a macro
+void exec(char *const exec_args[]) { // TODO: probably want to use a macro
     pid_t pid;
     if ((pid = fork()) == 0) {
-        execvp(args[0], args);
+        execvp(exec_args[0], exec_args);
     }
     wait(NULL);
 }
@@ -66,10 +67,6 @@ bool is_dir(const char *path) { // TODO: probably want to use a macro
 }
 
 bool dir_exists(char *path) { // TODO: probably want to use a macro
-    /*
-     * There are about a hundred different ways to check for this e.g. using access(), stat(), opendir(), mkdir()
-     * TODO: decide best way. (benchmark would be nice)
-     */
     struct stat path_stat;
     if (stat(path, &path_stat)) {
         return false;
@@ -99,7 +96,7 @@ char *expand_dir(char *dir_specifier) {
             if (dir_exists(path)) {
                 return path;
             }
-        } while (current = strtok(NULL, ":"));
+        } while ((current = strtok(NULL, ":")));
     }
     char *dir = malloc(strlen(dir_specifier) + FILENAME_LEN); // TODO: do we really need to duplicate this string? Would it be useful/possible to return an absolute path.
     strcpy(dir, dir_specifier);
@@ -109,7 +106,7 @@ char *expand_dir(char *dir_specifier) {
 void copy_main(int argc, char *argv[]) {
     int modification = 1;
 
-    int opt;
+    int opt, opt_count = 1;
     const char optstring[] = "cmt:";
     const struct option longopts[] = {
         {"modification", optional_argument, NULL, 't'},
@@ -117,6 +114,8 @@ void copy_main(int argc, char *argv[]) {
         {"move", no_argument, NULL, 'm'},
         {0, 0, 0, 0},
     };
+
+    opterr = 0;
 
     while ((opt = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
         switch(opt) {
@@ -126,14 +125,20 @@ void copy_main(int argc, char *argv[]) {
                 break;
             }
             break;
-        case '?':
-            puts(optarg);
-            break;
         case 'm':
             copy_command = "mv";
             break;
         case 'c':
             copy_command = "cp";
+            break;
+        case '?': {
+                  char *passthrough_cmd = malloc(3 * sizeof(char*)); // TODO: got to free this
+                  passthrough_cmd[0] = '-';
+                  passthrough_cmd[1] = optopt;
+                  passthrough_cmd[2] = 0;
+                  args[opt_count++] = passthrough_cmd; // TODO: deal with external command args
+              } break;
+        default: // TODO: Check if this is possible
             break;
         }
     }
@@ -148,20 +153,25 @@ void copy_main(int argc, char *argv[]) {
     src_path_len = strlen(src_path);
     char *dst_path = optind < argc ? expand_dir(argv[optind++]) : strdup(".");
 
+    args[0] = copy_command;
     if (is_dir(src_path)) {
+        src_path[src_path_len] = '/';
         if ((src_files_len = scandir(src_path, &src_files, filter, compar)) == -1) { // TODO free namelist
             CRASH();
         }
         if (modification >= 0) {
             for (int i = 0; i < (modification < src_files_len ? modification : src_files_len); ++i) {
-                src_path[src_path_len] = '/';
                 strncpy(src_path + src_path_len + 1, src_files[i]->d_name, 256);
-                char *args[] = {copy_command, src_path, dst_path, 0}; // TODO: for the moment using cp and mv seem to be the best
+                args[opt_count++] = src_path;
+                args[opt_count++] = dst_path;
+                args[opt_count++] = 0;
                 exec(args);
             }
         }
     } else {
-        char *args[] = {copy_command, src_path, dst_path, 0};
+        args[opt_count++] = src_path; // TODO: this is already done for the other side of the if statement. Should maybe be put inside a function
+        args[opt_count++] = dst_path;
+        args[opt_count++] = 0;
         exec(args);
     }
 
@@ -180,12 +190,21 @@ void list_main(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    char *command = argv[optind++];
-    if (!strcmp(command, "cp")) {
-        copy_main(argc, argv);
-    } else if (!strcmp(command, "mv")) {
-        move_main(argc, argv);
-    } else if (!strcmp(command, "ls")) {
-        list_main(argc, argv);
+    if (argc <= 1) {
+        printf("No command given\n");
+        return 1;
     }
+    char *command = argv[optind++];
+    args = malloc(argc * sizeof(char*)); // TODO: allocate less memory than needed
+    if (!strcmp(command, "cp") || !strcmp(command, "copy")) {
+        copy_main(argc, argv);
+    } else if (!strcmp(command, "mv") || !strcmp(command, "move")) {
+        move_main(argc, argv);
+    } else if (!strcmp(command, "ls") || !strcmp(command, "list")) {
+        list_main(argc, argv);
+    } else { // Command is unknown
+        printf("Unknown command %s\n", command);
+        return 1;
+    }
+    return 0;
 }
