@@ -83,9 +83,10 @@ char *expand_dir(char *dir_specifier) {
      * return a pointer to the path. It is allocated using malloc(3) and can be freed with free(3).
      */
     char *CDPATH = getenv("CDPATH");
+    char *path;
     if (CDPATH) {
-        CDPATH = strdup(CDPATH); // free(3)
-        char *path = malloc(strlen(CDPATH) + strlen(dir_specifier) + FILENAME_LEN); // TODO: uselessly big malloc()
+        CDPATH = strdup(CDPATH);
+        path = malloc(strlen(CDPATH) + strlen(dir_specifier) + FILENAME_LEN); // TODO: uselessly big malloc()
         char *current = strtok(CDPATH, ":");
         do {
             char *separator = stpcpy(path, current);
@@ -94,13 +95,16 @@ char *expand_dir(char *dir_specifier) {
             }
             strcpy(separator, dir_specifier);
             if (dir_exists(path)) {
+                free(CDPATH);
                 return path;
             }
         } while ((current = strtok(NULL, ":")));
+        free(path);
+        free(CDPATH);
     }
-    char *dir = malloc(strlen(dir_specifier) + FILENAME_LEN); // TODO: do we really need to duplicate this string? Would it be useful/possible to return an absolute path.
-    strcpy(dir, dir_specifier);
-    return dir;
+    path = malloc(strlen(dir_specifier) + FILENAME_LEN); // TODO: do we really need to duplicate this string? Would it be useful/possible to return an absolute path.
+    strcpy(path, dir_specifier);
+    return path;
 }
 
 void copy_main(int argc, char *argv[]) {
