@@ -119,8 +119,6 @@ void copy_main(int argc, char *argv[]) {
         {0, 0, 0, 0},
     };
 
-    opterr = 0;
-
     while ((opt = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
         switch(opt) {
         case 't':
@@ -166,9 +164,9 @@ void copy_main(int argc, char *argv[]) {
         if (modification >= 0) {
             for (int i = 0; i < (modification < src_files_len ? modification : src_files_len); ++i) {
                 strncpy(src_path + src_path_len + 1, src_files[i]->d_name, 256);
-                args[opt_count++] = src_path;
-                args[opt_count++] = dst_path;
-                args[opt_count++] = 0;
+                args[opt_count] = src_path;
+                args[opt_count + 1] = dst_path;
+                args[opt_count + 2] = 0;
                 exec(args);
             }
         }
@@ -187,13 +185,33 @@ void move_main(int argc, char *argv[]) {
 }
 
 void list_main(int argc, char *argv[]) {
-    char *path = expand_dir(argv[optind++]);
-    char *args[] = {"ls", path, 0};
+    int opt, opt_count = 1;
+    const char optstring[] = "";
+    const struct option longopts[] = {
+        {0, 0, 0, 0},
+    };
+
+    while ((opt = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) { // deal with unknown long commands
+        switch(opt) {
+        case '?': {
+                  char *passthrough_cmd = malloc(3 * sizeof(char*)); // TODO: got to free this
+                  passthrough_cmd[0] = '-';
+                  passthrough_cmd[1] = optopt;
+                  passthrough_cmd[2] = 0;
+                  args[opt_count++] = passthrough_cmd; // TODO: deal with external command args
+              } break;
+        default: // TODO: Check if this is possible
+            break;
+        }
+    }
+    args[0] = "ls";
+    args[opt_count++] = optind < argc ? expand_dir(argv[optind++]) : strdup("."); // TODO: free this
+    args[opt_count++] = 0;
     exec(args);
-    free(path);
 }
 
 int main(int argc, char *argv[]) {
+    opterr = 0;
     if (argc <= 1) {
         printf("No command given\n");
         return 1;
