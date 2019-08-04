@@ -134,11 +134,7 @@ void copy_main(int argc, char *argv[]) {
             copy_command = "cp";
             break;
         case '?': {
-                  char *passthrough_cmd = malloc(3 * sizeof(char*)); // TODO: got to free this
-                  passthrough_cmd[0] = '-';
-                  passthrough_cmd[1] = optopt;
-                  passthrough_cmd[2] = 0;
-                  args[opt_count++] = passthrough_cmd; // TODO: deal with external command args
+                  args[opt_count++] = argv[optind - 1]; // TODO: deal with external command args
               } break;
         default: // TODO: Check if this is possible
             break;
@@ -194,11 +190,7 @@ void list_main(int argc, char *argv[]) {
     while ((opt = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) { // deal with unknown long commands
         switch(opt) {
         case '?': {
-                  char *passthrough_cmd = malloc(3 * sizeof(char*)); // TODO: got to free this
-                  passthrough_cmd[0] = '-';
-                  passthrough_cmd[1] = optopt;
-                  passthrough_cmd[2] = 0;
-                  args[opt_count++] = passthrough_cmd; // TODO: deal with external command args
+                  args[opt_count++] = argv[optind - 1]; // TODO: deal with external command args
               } break;
         default: // TODO: Check if this is possible
             break;
