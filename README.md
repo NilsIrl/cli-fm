@@ -32,6 +32,14 @@ If you want more than one item use `-t` as an option.
 
 * coreutils (cp, ls, mv)
 
+## Build
+
+```sh
+mkdir build && cd build
+cmake ..
+make
+```
+
 ## TODO
 
 * Make this program universal and work on any commmand
