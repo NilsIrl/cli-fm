@@ -24,35 +24,6 @@
 
 #define CRASH() err(1, "line %d in %s", __LINE__, __FILE__);
 
-char *copy_command = "cp";
-char **args;
-
-char *src_path;
-int src_path_len;
-
-int compar(const struct dirent **a, const struct dirent **b) {
-    struct stat a_stat;
-    struct stat b_stat;
-
-    strncpy(src_path + src_path_len + 1, (*a)->d_name, 256);
-    if (stat(src_path, &a_stat)) {
-        CRASH();
-    }
-
-    strncpy(src_path + src_path_len + 1, (*b)->d_name, 256);
-    if (stat(src_path, &b_stat)) {
-        CRASH();
-    }
-    return a_stat.st_mtime < b_stat.st_mtime;
-}
-
-int filter(const struct dirent *a) {
-    if (strcmp(a->d_name, ".") && strcmp(a->d_name, "..")) {
-        return 1;
-    }
-    return 0;
-}
-
 void exec(char *const exec_args[]) { // TODO: probably want to use a macro
     pid_t pid;
     if ((pid = fork()) == 0) {
@@ -90,8 +61,8 @@ void cdpath_init(struct cdpath *cdpath, const char *initial_path) {
 }
 
 /*
- * @param: suffix_length must hold the value of strlen(suffix). It is passed to
- * prevent it from being computed multiple times.
+ * @param: suffix_capacity must hold the value of strlen(suffix) + 1. It is
+ * passed to prevent it from being computed multiple times.
  */
 void cdpath_set_suffix(struct cdpath *cdpath, const char *suffix, const size_t suffix_capacity) {
     if (cdpath->capacity < cdpath->prefix_length + suffix_capacity) {
@@ -117,8 +88,7 @@ void expand_dir(struct vector *args, struct vector *cd_paths, const char *suffix
         return;
     }
 
-    size_t suffix_length = strlen(dir_specifier);
-    size_t suffix_capacity = suffix_length + 1;
+    size_t suffix_capacity = strlen(dir_specifier) + 1;
 
     for (struct cdpath **paths = (struct cdpath **) vector_vector(cd_paths); paths != NULL; ++paths) {
         if (cdpath_suffix_exists(*paths, suffix, suffix_capacity) == true) {
@@ -128,18 +98,21 @@ void expand_dir(struct vector *args, struct vector *cd_paths, const char *suffix
     }
 
     char *separator;
-    if (separator = memrchr(suffix, ':', suffix_length) == NULL) {
+    if (separator = memrchr(suffix, ':', suffix_capacity - 1) == NULL) {
         // TODO: no file or directory
         return;
     }
 
     *separator = '\0';
+    suffix_capacity = suffix - separator + 1;
     if (directory_exists(suffix) == true) {
 
     }
     
     for (struct cdpath **paths = (struct cdpath **) vector_vector(cd_paths); paths != NULL; ++paths) {
+        if ((cdpath_suffix_is_directory(*paths, suffix, suffix_capacity)) == true) {
 
+        }
     }
 }
 
