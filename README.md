@@ -7,30 +7,79 @@ regularly**
 ## Usage
 
 ```
-cli-fm <command> [options]
+cli-fm [options] <command>
 ```
 
-The command may be on of the following:
-* `ls`, `list`
-* `mv`, `move`
-* `cp`, `copy`
+cli-fm will run the command modifying the paths in the command's argument using
+the `CDPATH` environment variable (`help cd`, to learn about `CDPATH`) and
+other expansion rules.
 
-All these commands will work like the standard `coreutils` one except they will
-take into account the `CDPATH` environment variable. Also when the source is a
-directory, the most recently modified item in the directory will be cp/mv-ed.
-If you want more than one item use `-t` as an option.
+cli-fm can also infer certain path arguments using the `-p` option. `-p` should
+be the number of path arguments `command` is expecting. The default value of
+`-p` changes based on what command is, using some basic rules (e.g. 2 for
+`cp`/`mv` or 1 for `ls`).
 
-## Features
+If the number of arguments that are paths is 1 under the value of `-p`, then
+`cli-fm` will add `.` to the argument list.
 
-* Takes full advantage of the `CDPATH` environment variable. No more need to type
-  in long full paths
-* Copy/move the most recent/old files
-* Fast
-* Easily scriptable
+### Expansion Rules
 
-## Dependencies
+Expansion works with the colon (`:`) character and commands.
 
-* coreutils (cp, ls, mv)
+List of available commands:
+
+* `:t`, sorts using the modification time
+
+### Examples
+
+```sh
+export CDPATH=~
+cd /tmp
+cli-fm cp Downloads Documents
+```
+
+gets expanded to
+
+```sh
+cp ~/Downloads ~/Documents
+```
+
+A common use case is to move files you have just downloaded to your workspace.
+
+```sh
+export CDPATH=~
+cd /tmp
+cli-fm mv Downloads/:t
+```
+
+gets expanded to
+
+```sh
+mv ~/Downloads/last_downloaded_file .
+```
+
+Here, the `:t` is replaced with the last modified file (i.e. the file you have
+just downloaded), Downloads gets expanded by `CDPATH` and an implicit `.` is
+added.
+
+#### `-t`
+
+```sh
+$ cli-fm mv Downloads
+```
+
+will actually run
+
+```sh
+$ mv Downloads .
+```
+
+cli-fm detects that the command is `mv` and so sets `-t` to `2`. It is
+equivalent to running:
+
+```sh
+$ cli-fm mv -t 2 Downloads
+```
 
 ## Build
 
@@ -40,9 +89,15 @@ cmake ..
 make
 ```
 
-## TODO
+## Support
 
-* Make this program universal and work on any commmand
-* Add shell completion (not in shell because that's bloat)
-* Add tests because I can't remember everything to test
+* You can ask me questions on [my stream](https://www.twitch.tv/nilsirl)
+* [matrix](https://matrix.to/#/!tLDcLvclSWOGibbnSx:matrix.org?via=matrix.org)
+* Email me (My email address can be found on [my github
+  profile](https://github.com/NilsIrl/))
 
+## [License](LICENSE)
+
+cli-fm is licensed under the GNU General Public License v3.0.
+
+Copyright © 2020 Nils André
