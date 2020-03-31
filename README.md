@@ -62,7 +62,7 @@ Here, the `:t` is replaced with the last modified file (i.e. the file you have
 just downloaded), Downloads gets expanded by `CDPATH` and an implicit `.` is
 added.
 
-#### `-t`
+#### `-p`
 
 ```sh
 $ cli-fm mv Downloads
@@ -74,11 +74,11 @@ will actually run
 $ mv Downloads .
 ```
 
-cli-fm detects that the command is `mv` and so sets `-t` to `2`. It is
+cli-fm detects that the command is `mv` and so sets `-p` to `2`. It is
 equivalent to running:
 
 ```sh
-$ cli-fm mv -t 2 Downloads
+$ cli-fm mv -p 2 Downloads
 ```
 
 ## Build
