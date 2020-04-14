@@ -13,6 +13,7 @@
 #include <dirent.h> // scandir
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <err.h>
 #include <errno.h>
 #include <string.h>
@@ -21,6 +22,10 @@
 
 #include "file_manipulation.h"
 #include "vector.h"
+
+vector(int, int);
+vector(char *, str);
+vector(struct cdpath, cdpath);
 
 #define CRASH() err(1, "line %d in %s", __LINE__, __FILE__);
 
@@ -43,55 +48,11 @@ char *strdup_with_capacity(const char *str, const size_t capacity) {
     return memcpy(new, str, capacity);
 }
 
-struct cdpath {
-    char *path;
-    // suffix_ptr points to the end of the path, where there should be a '\0'
-    // when it doesn't have a base.
+void expand_dir(struct vector_str *args, struct vector_int *cd_paths, const char *suffix) {
+    size_t suffix_capacity = strlen(suffix) + 1;
 
-    // prefix_length holds the length of the prefix. It shouldn't change.
-    size_t prefix_length;
-    size_t capacity;
-};
-
-void cdpath_init(struct cdpath *cdpath, const char *initial_path) {
-    cdpath->prefix_length = strlen(initial_path);
-    cdpath->capacity = cdpath->prefix_length + 1;
-    cdpath->path = malloc(cdpath->capacity);
-    memcpy(cdpath->path, initial_path, cdpath->capacity);
-}
-
-/*
- * @param: suffix_capacity must hold the value of strlen(suffix) + 1. It is
- * passed to prevent it from being computed multiple times.
- */
-void cdpath_set_suffix(struct cdpath *cdpath, const char *suffix, const size_t suffix_capacity) {
-    if (cdpath->capacity < cdpath->prefix_length + suffix_capacity) {
-        cdpath->capacity = cdpath->prefix_length + suffix_capacity;
-        cdpath->path = realloc(cdpath->path, cdpath->capacity);
-    }
-    memcpy(cdpath + cdpath->prefix_length, suffix, suffix_capacity);
-}
-
-bool cdpath_suffix_exists(struct cdpath *cdpath, const char *suffix, const size_t suffix_capacity) {
-    cdpath_set_suffix(cdpath, suffix, suffix_capacity);
-    return file_or_directory_exists(cdpath->path);
-}
-
-bool cdpath_suffix_is_directory(struct cdpath *cdpath, const char *suffix, const size_t suffix_capacity) {
-    cdpath_set_suffix(cdpath, suffix, suffix_capacity);
-    return is_directory_and_exists(cdpath->path);
-}
-
-void expand_dir(struct vector *args, struct vector *cd_paths, const char *suffix) {
-    if (file_or_directory_exists(dir_specifier) == true) {
-        vector_push(args, dir_specifier);
-        return;
-    }
-
-    size_t suffix_capacity = strlen(dir_specifier) + 1;
-
-    for (struct cdpath **paths = (struct cdpath **) vector_vector(cd_paths); paths != NULL; ++paths) {
-        if (cdpath_suffix_exists(*paths, suffix, suffix_capacity) == true) {
+    for (size_t i = 0; i < cd_paths->length; ++i) {
+        if (file_or_directory_exists_at(cd_paths->vector[i], suffix) == true) {
             vector_push(args, strdup_with_capacity((*paths)->path, suffix_capacity));
             return;
         }
@@ -123,12 +84,10 @@ void print_help() {
          "https://github.com/NilsIrl/cli-fm");
 }
 
-enum command {
-    NO_COMMAND,
-    COPY,
-    MOVE,
-    LIST,
-};
+struct cdpath {
+    char path[PATH_MAX];
+    char *suffix;
+}
 
 /*
  * ARCHITECTURE TODO: Find the longest suffix first, so that no reallocations are needed for cdpath-s.
@@ -137,9 +96,7 @@ enum command {
 
 int main(int argc, char *argv[]) {
     // TODO: explain why it is set to 0
-#if 0
     opterr = 0;
-#endif
 
     int opt;
     // The number of implicit paths cli-fm should add.
@@ -147,6 +104,8 @@ int main(int argc, char *argv[]) {
     // If `ls` is run without any path, another path is added, to achieve 1 path.
     // For `mv` and `cp`, if 1 path is given, another path is added to achieve 2 path.
     int32_t number_of_required_path = -1;
+
+    // TODO: do we really want the "+". When do we print the help then?
     while ((opt = getopt_long(argc, argv, "+hp:v",
                     (struct option[]) {
                         { "help", no_argument, NULL, 'h' },
@@ -168,15 +127,33 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    struct vector cd_paths;
+    struct vector_cdpath cdpaths;
     vector_init(&cd_paths);
 
-    char *CDPATH = strdupa(getenv("CDPATH"));
+    // TODO: compare this with open(".")
+    vector_push(&cd_paths, AT_FDCWD);
+
+    // TODO: look carefully at strtok to see if it is possible to not strdup it.
+    const char *CDPATH = getenv("CDPATH");
+    const char *subp;
+    for (const char *CDPATH = getenv("CDPATH"); ; CDPATH = subp)
+    while (CDPATH != NULL) {
+        subp = strchrnul(CDPATH, ':');
+        if (subp - CDPATH > MAX_PATH) {
+            continue;
+        }
+        struct cdpath *cdpath = alloca(sizeof(struct cdpath));
+        char *separator = mempcpy(cdpath->path, CDPATH, subp - CDPATH);
+        cdpath->suffix = *separator++ = '/';
+    }
     char *token = strtok(CDPATH, ":");
     while (token != NULL) {
-        struct cdpath *cdpath = alloca(sizeof(struct cdpath));
-        cdpath_init(cdpath, token);
-        vector_push(&cd_paths, cdpath);
+        // TODO: O_CLOEXEC may be interesting to close the file descriptors when executing the command
+        int fd = open(token, O_RDONLY | O_DIRECTORY | O_PATH);
+        if (fd == -1) {
+            CRASH();
+        }
+        vector_push(&cd_paths, fd);
         token = strtok(NULL, ":");
     }
 

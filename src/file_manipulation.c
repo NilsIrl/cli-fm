@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-bool path_exists(const char *path, struct stat *path_stat) {
-	if (stat(path, path_stat) != 0) {
+bool path_exists_at(const int dirfd, const char *pathname, struct stat *statbuf) {
+	if (fstatat(dirfd, pathname, statbuf, 0) != 0) {
 		if (errno == ENOENT) {
 			return false;
 		} else {
@@ -18,14 +18,14 @@ bool path_exists(const char *path, struct stat *path_stat) {
 	return true;
 }
 
-bool file_or_directory_exists(const char *path) {
-	struct stat path_stat;
-	return path_exists(path, &path_stat);
+bool file_or_directory_exists_at(const int dirfd, const char *pathname) {
+	struct stat statbuf;
+	return path_exists(dirfd, pathname, &statbuf);
 }
 
-bool is_directory_and_exists(const char *path) {
-	struct stat path_stat;
-	if (file_or_directory_exists(path, &path_stat) == false) {
+bool is_directory_and_exists(const int dirfd, const char *pathname) {
+	struct stat statbuf;
+	if (path_exists_at(dirfd, pathname, &statbuf) == false) {
 		return false;
 	}
 	return S_ISDIR(path_stat.st_mode);
