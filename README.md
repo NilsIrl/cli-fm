@@ -29,6 +29,10 @@ Expansion works with the colon (`:`) character and commands.
 List of available commands:
 
 * `:t`, sorts using the modification time
+* `:r` (for random) or `:s` (shuffle), to sort randomly. I haven't decided
+  whether `:r` or `:s` (or another character for that matter), was best. Please
+  [let me know](https://github.com/NilsIrl/cli-fm/issues/4) if you think
+  there's a reason to choose one over the other(s).
 
 ### Examples
 
