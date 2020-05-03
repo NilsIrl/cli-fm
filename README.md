@@ -22,6 +22,16 @@ be the number of path arguments `command` is expecting. The default value of
 If the number of arguments that are paths is 1 under the value of `-p`, then
 `cli-fm` will add `.` to the argument list.
 
+A typical use case for this (and the reason that made me write `cli-fm`), is
+when playing CTFs: you often download many files from your browser, and they end
+up in `~/Downloads`. With `cli-fm`, you can now just run:
+
+```sh
+cli-fm mv ~/Downloads/:t
+```
+
+to move the file to your current directory.
+
 ### Expansion Rules
 
 Expansion works with the colon (`:`) character and commands.
