@@ -5,33 +5,18 @@
 #define _POSIX_C_SOURCE 200809L
 #define _GNU_SOURCE
 
-#include <unistd.h>
 #include <getopt.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
-#include <dirent.h> // scandir
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <err.h>
-#include <errno.h>
 #include <string.h>
 #include <stdio.h>
-#include <sys/wait.h>
+#include <unistd.h>
 
+#include "cdpath.h"
 #include "file_manipulation.h"
 #include "vector.h"
 
 #define CRASH() err(1, "line %d in %s", __LINE__, __FILE__);
-
-void exec(char *const exec_args[]) { // TODO: probably want to use a macro
-    pid_t pid;
-    if ((pid = fork()) == 0) {
-        execvp(exec_args[0], exec_args);
-    }
-    wait(NULL);
-}
 
 /*
  * Same as strdup, except that it takes as parameter the capacity of the string (STRLEN(3) + 1)
@@ -44,7 +29,7 @@ char *strdup_with_capacity(const char *str, const size_t capacity) {
     return memcpy(new, str, capacity);
 }
 
-void expand_dir(struct vector *args, struct vector *cdpaths, const char *suffix) {
+void expand_dir(struct vector *args, struct vector *cdpaths, char *suffix) {
     size_t suffix_capacity = strlen(suffix) + 1;
 
     if (file_exists(suffix) == true) {
@@ -60,6 +45,7 @@ void expand_dir(struct vector *args, struct vector *cdpaths, const char *suffix)
         }
     }
 
+#if 0
     char *separator;
     if (separator = memrchr(suffix, ':', suffix_capacity - 1) == NULL) {
         // TODO: no file or directory
@@ -77,8 +63,9 @@ void expand_dir(struct vector *args, struct vector *cdpaths, const char *suffix)
 
         }
     }
+#endif
 
-
+    vector_push(args, suffix);
 }
 
 void print_help() {
@@ -87,11 +74,6 @@ void print_help() {
             "\t-v, --verbose: print commands ran\n"
             "https://github.com/NilsIrl/cli-fm");
 }
-
-struct cdpath {
-    char path[PATH_MAX];
-    char *suffix;
-};
 
 /*
  * ARCHITECTURE TODO: Find the longest suffix first, so that no reallocations are needed for cdpath-s.
@@ -158,6 +140,11 @@ int main(int argc, char *argv[]) {
 
     // TODO: use argv[0] for the command
     // TODO: if (optind == argc) { here_we_go_again(); }
+    if (optind == argc) {
+        fputs("No command given\n", stderr);
+        exit(2);
+    }
+
     char *command = argv[optind++];
     vector_push(&args, command);
 
@@ -181,5 +168,11 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    return 0;
+    vector_push(&args, NULL);
+    execvp(command, (char **) args.vector);
+
+    // execvp returned indicating an error
+    fputs("execvp failed.\n", stderr);
+
+    return 1;
 }
