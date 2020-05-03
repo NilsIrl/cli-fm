@@ -6,28 +6,38 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-bool path_exists_at(const int dirfd, const char *pathname, struct stat *statbuf) {
-	if (fstatat(dirfd, pathname, statbuf, 0) != 0) {
+bool path_exists(const char *path, struct stat *statbuf) {
+	if (stat(path, statbuf) == -1) {
 		if (errno == ENOENT) {
 			return false;
 		} else {
-			fprintf(stderr, "stat failed in dir_exists.\n");
+			fputs("stat failed in path_exists.\n", stderr);
 			exit(EXIT_FAILURE);
 		}
 	}
 	return true;
 }
 
-bool file_or_directory_exists_at(const int dirfd, const char *pathname) {
+bool file_exists(const char *path) {
 	struct stat statbuf;
-	return path_exists(dirfd, pathname, &statbuf);
+	return path_exists(path, &statbuf);
 }
 
-bool is_directory_and_exists(const int dirfd, const char *pathname) {
-	struct stat statbuf;
-	if (path_exists_at(dirfd, pathname, &statbuf) == false) {
-		return false;
+bool file_exists_at_path(struct cdpath *cdpath, const char *suffix, const size_t suffix_len) {
+	if (cdpath->suffix - cdpath->path + suffix_len > sizeof(cdpath->path)) {
+		fputs("filename too long :( in file_exists_at_path.\n", stderr);
+		exit(2); // "user" error
 	}
-	return S_ISDIR(path_stat.st_mode);
+	memcpy(cdpath->suffix, suffix, suffix_len);
+	return file_exists(cdpath->path);
 }
 
+/*
+ * returns false if it doesn't exist or isn't a directory
+ */
+bool is_directory(const char *path) {
+	struct stat statbuf;
+	if (path_exists(path, &statbuf) == false)
+		return false;
+	return S_ISDIR(statbuf.st_mode);
+}

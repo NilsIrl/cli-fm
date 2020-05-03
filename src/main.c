@@ -23,10 +23,6 @@
 #include "file_manipulation.h"
 #include "vector.h"
 
-vector(int, int);
-vector(char *, str);
-vector(struct cdpath, cdpath);
-
 #define CRASH() err(1, "line %d in %s", __LINE__, __FILE__);
 
 void exec(char *const exec_args[]) { // TODO: probably want to use a macro
@@ -48,12 +44,18 @@ char *strdup_with_capacity(const char *str, const size_t capacity) {
     return memcpy(new, str, capacity);
 }
 
-void expand_dir(struct vector_str *args, struct vector_int *cd_paths, const char *suffix) {
+void expand_dir(struct vector *args, struct vector *cdpaths, const char *suffix) {
     size_t suffix_capacity = strlen(suffix) + 1;
 
-    for (size_t i = 0; i < cd_paths->length; ++i) {
-        if (file_or_directory_exists_at(cd_paths->vector[i], suffix) == true) {
-            vector_push(args, strdup_with_capacity((*paths)->path, suffix_capacity));
+    if (file_exists(suffix) == true) {
+        vector_push(args, suffix);
+        return;
+    }
+
+    for (size_t i = 0; i < cdpaths->length; ++i) {
+        struct cdpath *cdpath = cdpaths->vector[i];
+        if (file_exists_at_path(cdpath, suffix, suffix_capacity) == true) {
+            vector_push(args, strdup_with_capacity(cdpath->path, cdpath->suffix - cdpath->path + suffix_capacity));
             return;
         }
     }
@@ -69,25 +71,27 @@ void expand_dir(struct vector_str *args, struct vector_int *cd_paths, const char
     if (directory_exists(suffix) == true) {
 
     }
-    
-    for (struct cdpath **paths = (struct cdpath **) vector_vector(cd_paths); paths != NULL; ++paths) {
+
+    for (struct cdpath **paths = (struct cdpath **) vector_vector(cdpaths); paths != NULL; ++paths) {
         if ((cdpath_suffix_is_directory(*paths, suffix, suffix_capacity)) == true) {
 
         }
     }
+
+
 }
 
 void print_help() {
     puts("cli-fm\n"
-         "\t-h, --help: show this help message\n"
-         "\t-v, --verbose: print commands ran\n"
-         "https://github.com/NilsIrl/cli-fm");
+            "\t-h, --help: show this help message\n"
+            "\t-v, --verbose: print commands ran\n"
+            "https://github.com/NilsIrl/cli-fm");
 }
 
 struct cdpath {
     char path[PATH_MAX];
     char *suffix;
-}
+};
 
 /*
  * ARCHITECTURE TODO: Find the longest suffix first, so that no reallocations are needed for cdpath-s.
@@ -108,53 +112,45 @@ int main(int argc, char *argv[]) {
     // TODO: do we really want the "+". When do we print the help then?
     while ((opt = getopt_long(argc, argv, "+hp:v",
                     (struct option[]) {
-                        { "help", no_argument, NULL, 'h' },
-                        { "path", required_argument, NULL, 'p' },
-                        { "verbose", no_argument, NULL, 'v'},
-                        { 0, 0, 0, 0 }
+                    { "help", no_argument, NULL, 'h' },
+                    { "path", required_argument, NULL, 'p' },
+                    { "verbose", no_argument, NULL, 'v'},
+                    { 0, 0, 0, 0 }
                     }, NULL)) != -1) {
         switch (opt) {
-        case 'h':
-            print_help();
-            exit(EXIT_SUCCESS);
-            break;
-        case 'p':
-            number_of_required_path = atoi(optarg);
-            break;
-        case 'v':
-            // TODO: verbose
-            break;
+            case 'h':
+                print_help();
+                exit(EXIT_SUCCESS);
+                break;
+            case 'p':
+                number_of_required_path = atoi(optarg);
+                break;
+            case 'v':
+                // TODO: verbose
+                break;
         }
     }
 
-    struct vector_cdpath cdpaths;
-    vector_init(&cd_paths);
+    struct vector cdpaths;
+    vector_init(&cdpaths);
 
-    // TODO: compare this with open(".")
-    vector_push(&cd_paths, AT_FDCWD);
-
-    // TODO: look carefully at strtok to see if it is possible to not strdup it.
     const char *CDPATH = getenv("CDPATH");
-    const char *subp;
-    for (const char *CDPATH = getenv("CDPATH"); ; CDPATH = subp)
-    while (CDPATH != NULL) {
-        subp = strchrnul(CDPATH, ':');
-        if (subp - CDPATH > MAX_PATH) {
-            continue;
+    if (CDPATH != NULL) {
+        const char *subp;
+        for (;; CDPATH = subp) {
+            subp = strchrnul(CDPATH, ':');
+            if (subp - CDPATH > PATH_MAX) {
+                if (*subp == '\0')
+                    break;
+                continue;
+            }
+            struct cdpath *cdpath = alloca(sizeof(*cdpath));
+            cdpath->suffix = mempcpy(cdpath->path, CDPATH, subp - CDPATH);
+            *cdpath->suffix++ = '/';
+            vector_push(&cdpaths, cdpath);
+            if (*subp++ == '\0')
+                break;
         }
-        struct cdpath *cdpath = alloca(sizeof(struct cdpath));
-        char *separator = mempcpy(cdpath->path, CDPATH, subp - CDPATH);
-        cdpath->suffix = *separator++ = '/';
-    }
-    char *token = strtok(CDPATH, ":");
-    while (token != NULL) {
-        // TODO: O_CLOEXEC may be interesting to close the file descriptors when executing the command
-        int fd = open(token, O_RDONLY | O_DIRECTORY | O_PATH);
-        if (fd == -1) {
-            CRASH();
-        }
-        vector_push(&cd_paths, fd);
-        token = strtok(NULL, ":");
     }
 
     struct vector args;
@@ -177,8 +173,9 @@ int main(int argc, char *argv[]) {
     }
 
     for (; optind < argc; ++optind) {
+        // If argument is a path not an option (i.e. doesn't start with a '-')
         if (argv[optind][0] != '-') {
-            expand_dir(&args, &cd_paths, argv[optind]);
+            expand_dir(&args, &cdpaths, argv[optind]);
         } else {
             vector_push(&args, argv[optind]);
         }
