@@ -89,7 +89,9 @@ int main(int argc, char *argv[]) {
     // For example, with `ls`, it is set to 1
     // If `ls` is run without any path, another path is added, to achieve 1 path.
     // For `mv` and `cp`, if 1 path is given, another path is added to achieve 2 path.
-    int32_t number_of_required_path = -1;
+    //
+    // Initialized at -1 to indicate that the user has not overridden it
+    int16_t number_of_required_path = -1;
 
     // TODO: do we really want the "+". When do we print the help then?
     while ((opt = getopt_long(argc, argv, "+hp:v",
@@ -139,7 +141,6 @@ int main(int argc, char *argv[]) {
     vector_init_with_capacity(&args, argc);
 
     // TODO: use argv[0] for the command
-    // TODO: if (optind == argc) { here_we_go_again(); }
     if (optind == argc) {
         fputs("No command given\n", stderr);
         exit(2);
@@ -150,9 +151,7 @@ int main(int argc, char *argv[]) {
 
     // If the user didn't override number_of_required_path
     if (number_of_required_path == -1) {
-        if (!strcmp(command, "ls")) {
-            number_of_required_path = 1;
-        } else if (!strcmp(command, "cp") || !strcmp(command, "mv")) {
+        if (!strcmp(command, "cp") || !strcmp(command, "mv")) {
             number_of_required_path = 2;
         } else {
             number_of_required_path = 0;
@@ -166,6 +165,10 @@ int main(int argc, char *argv[]) {
         } else {
             vector_push(&args, argv[optind]);
         }
+    }
+
+    if (number_of_required_path - args.length == 0) {
+        vector_push(&args, ".");
     }
 
     vector_push(&args, NULL);
