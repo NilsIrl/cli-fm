@@ -1,3 +1,5 @@
+# [THIS PROJECT HAS BEEN REWRITTEN AND RENAMED TO cfm THIS REPOSITORY IS ONLY HERE FOR ARCHIVAL PURPOSES](https://github.com/NilsIrl/cfm)
+
 # cli-fm
 The only real and effective CLI file manager.
 
